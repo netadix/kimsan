@@ -99,7 +99,7 @@ public class PanelSystem : MonoBehaviour
     private long swapX1, swapX2;
     private long swapY1, swapY2;
 
-    private FuseDirection CurrentFusePanel;
+    private FuseDirection CurrentFusePanelDirection;
 
     // Use this for initialization
 
@@ -259,7 +259,7 @@ public class PanelSystem : MonoBehaviour
             case 1:     // Stage1
                 currentX = 0;
                 currentY = 3;
-                CurrentFusePanel = FuseDirection.Down;
+                CurrentFusePanelDirection = FuseDirection.Down;
 
                 // Stage1 [4, 4]
                 panelSize = 4;
@@ -296,7 +296,7 @@ public class PanelSystem : MonoBehaviour
             case 2:     // Stage2
                 currentX = 0;
                 currentY = 4;
-                CurrentFusePanel = FuseDirection.Down;
+                CurrentFusePanelDirection = FuseDirection.Down;
 
                 // Stage2 [5, 5]
                 panelSize = 5;
@@ -597,45 +597,80 @@ public class PanelSystem : MonoBehaviour
 
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
+    //　現在の燃えているパネルのタイプを返却する
+    //--------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
+    public PanelType GetCurrentPanelType()
+    {
+        PanelType currentType = Panel.Matrix[currentX, currentY];
+
+        return currentType;
+    }
+
+    //--------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
+    //　現在の燃えているパネルが最終的に燃えていく方向を返却する
+    //--------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
+    public FuseDirection GetCurrentFuseDirection()
+    {
+        return CurrentFusePanelDirection;
+    }
+
+    //--------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
     //　導火線がパネルの中で燃え尽きた時に導火線が繋がっているかどうか判断する
     //--------------------------------------------------------------------------
     //--------------------------------------------------------------------------
-    void JudgeFuseConnection(PanelType type)
+    public void JudgeFuseConnection()
     {
         PanelType currentType = Panel.Matrix[currentX, currentY];
-        switch (CurrentFusePanel)
+        FuseDirection nextStartDirection;
+
+        // 移動可能方向
+        //    case PanelType.StraightVertical:    // Down, Up  
+        //    case PanelType.StraightHorizontal;  // Right, Left
+        //    case PanelType.CurveLeftUp:         // Left, Up
+        //    case PanelType.CurveUpRight:        // Up, RIght
+        //    case PanelType.CurveRightDown:      // Right, Down
+        //    case PanelType.CurveDownLeft:       // Down, Left
+        //    case PanelType.CurveLeftUp_RightDown:   // Down, Up, RIght, Left
+        //    case PanelType.CurveDownLeft_UpRight:   // Down, Up, RIght, Left
+
+        switch (CurrentFusePanelDirection)
         {
             case FuseDirection.Down:
+                nextStartDirection = FuseDirection.Up;
                 if (currentY > 0)
                 {
                     if (Panel.Matrix[currentX, currentY - 1] == PanelType.StraightVertical)
                     {
                         currentY--;
-                        CurrentFusePanel = FuseDirection.Down;
+                        CurrentFusePanelDirection = FuseDirection.Down;
                         break;
                     }
                     if (Panel.Matrix[currentX, currentY - 1] == PanelType.CurveLeftUp)
                     {
                         currentY--;
-                        CurrentFusePanel = FuseDirection.Left;
+                        CurrentFusePanelDirection = FuseDirection.Left;
                         break;
                     }
                     if (Panel.Matrix[currentX, currentY - 1] == PanelType.CurveUpRight)
                     {
                         currentY--;
-                        CurrentFusePanel = FuseDirection.Right;
+                        CurrentFusePanelDirection = FuseDirection.Right;
                         break;
                     }
                     if (Panel.Matrix[currentX, currentY - 1] == PanelType.CurveLeftUp_RightDown)
                     {
                         currentY--;
-                        CurrentFusePanel = FuseDirection.Right;
+                        CurrentFusePanelDirection = FuseDirection.Right;
                         break;
                     }
                     if (Panel.Matrix[currentX, currentY - 1] == PanelType.CurveDownLeft_UpRight)
                     {
                         currentY--;
-                        CurrentFusePanel = FuseDirection.Left;
+                        CurrentFusePanelDirection = FuseDirection.Left;
                         break;
                     }
                     // gameover
@@ -647,36 +682,37 @@ public class PanelSystem : MonoBehaviour
                 break;
 
             case FuseDirection.Up:
+                nextStartDirection = FuseDirection.Down;
                 if (currentY < Panel.Size - 1)
                 {
                     if (Panel.Matrix[currentX, currentY + 1] == PanelType.StraightVertical)
                     {
                         currentY++;
-                        CurrentFusePanel = FuseDirection.Down;
+                        CurrentFusePanelDirection = FuseDirection.Down;
                         break;
                     }
                     if (Panel.Matrix[currentX, currentY + 1] == PanelType.CurveRightDown)
                     {
                         currentY++;
-                        CurrentFusePanel = FuseDirection.Right;
+                        CurrentFusePanelDirection = FuseDirection.Right;
                         break;
                     }
                     if (Panel.Matrix[currentX, currentY + 1] == PanelType.CurveDownLeft)
                     {
                         currentY++;
-                        CurrentFusePanel = FuseDirection.Left;
+                        CurrentFusePanelDirection = FuseDirection.Left;
                         break;
                     }
                     if (Panel.Matrix[currentX, currentY + 1] == PanelType.CurveLeftUp_RightDown)
                     {
                         currentY++;
-                        CurrentFusePanel = FuseDirection.Right;
+                        CurrentFusePanelDirection = FuseDirection.Right;
                         break;
                     }
                     if (Panel.Matrix[currentX, currentY + 1] == PanelType.CurveDownLeft_UpRight)
                     {
                         currentY++;
-                        CurrentFusePanel = FuseDirection.Left;
+                        CurrentFusePanelDirection = FuseDirection.Left;
                         break;
                     }
                     // gameover
@@ -688,40 +724,41 @@ public class PanelSystem : MonoBehaviour
                 break;
 
             case FuseDirection.Left:
+                nextStartDirection = FuseDirection.Right;
                 if (currentX > 0)
                 { 
-                    if (Panel.Matrix[currentX - 1, currentY] == PanelType.StraightVertical)
+                    if (Panel.Matrix[currentX - 1, currentY] == PanelType.StraightHorizontal)
                     {
                         currentX--;
-                        CurrentFusePanel = FuseDirection.Down;
+                        CurrentFusePanelDirection = FuseDirection.Left;
+                        break;
+                    }
+                    if (Panel.Matrix[currentX - 1, currentY] == PanelType.CurveUpRight)
+                    {
+                        currentX--;
+                        CurrentFusePanelDirection = FuseDirection.Up;
                         break;
                     }
                     if (Panel.Matrix[currentX - 1, currentY] == PanelType.CurveRightDown)
                     {
                         currentX--;
-                        CurrentFusePanel = FuseDirection.Right;
-                        break;
-                    }
-                    if (Panel.Matrix[currentX - 1, currentY] == PanelType.CurveDownLeft)
-                    {
-                        currentX--;
-                        CurrentFusePanel = FuseDirection.Left;
+                        CurrentFusePanelDirection = FuseDirection.Down;
                         break;
                     }
                     if (Panel.Matrix[currentX - 1, currentY] == PanelType.CurveLeftUp_RightDown)
                     {
                         currentX--;
-                        CurrentFusePanel = FuseDirection.Right;
+                        CurrentFusePanelDirection = FuseDirection.Down;
                         break;
                     }
                     if (Panel.Matrix[currentX - 1, currentY] == PanelType.CurveDownLeft_UpRight)
                     {
                         currentX--;
-                        CurrentFusePanel = FuseDirection.Left;
+                        CurrentFusePanelDirection = FuseDirection.Up;
                         break;
                     }
+                    // gameover
                 }
-                // gameover
                 else
                 {
                     // gameover
@@ -729,9 +766,46 @@ public class PanelSystem : MonoBehaviour
                 break;
 
             case FuseDirection.Right:
+                if ((currentX == Panel.Size - 1) && (currentY == Panel.Size - 1))
+                {
+                    // game clear!!!!!!!!!
+                    // ロケットが右下にあると仮定したら
+                }
+
+                nextStartDirection = FuseDirection.Left;
                 if (currentX < Panel.Size - 1)
                 {
-
+                    if (Panel.Matrix[currentX + 1, currentY] == PanelType.StraightHorizontal)
+                    {
+                        currentX++;
+                        CurrentFusePanelDirection = FuseDirection.Right;
+                        break;
+                    }
+                    if (Panel.Matrix[currentX + 1, currentY] == PanelType.CurveLeftUp)
+                    {
+                        currentX++;
+                        CurrentFusePanelDirection = FuseDirection.Up;
+                        break;
+                    }
+                    if (Panel.Matrix[currentX + 1, currentY] == PanelType.CurveDownLeft)
+                    {
+                        currentX++;
+                        CurrentFusePanelDirection = FuseDirection.Down;
+                        break;
+                    }
+                    if (Panel.Matrix[currentX + 1, currentY] == PanelType.CurveLeftUp_RightDown)
+                    {
+                        currentX++;
+                        CurrentFusePanelDirection = FuseDirection.Up;
+                        break;
+                    }
+                    if (Panel.Matrix[currentX + 1, currentY] == PanelType.CurveDownLeft_UpRight)
+                    {
+                        currentX++;
+                        CurrentFusePanelDirection = FuseDirection.Down;
+                        break;
+                    }
+                    // gameover
                 }
                 else
                 {
@@ -740,20 +814,15 @@ public class PanelSystem : MonoBehaviour
 
                 break;
         }
+        // StartBurning(nextStartDirection, Panel.Matrix[currentX, currentY]);
 
-        //switch (type)
-        //{
-        //    case PanelType.StraightVertical:    // Down, Up  
-        //    case PanelType.StraightHorizontal;  // Right, Left
-        //    case PanelType.CurveLeftUp:         // Left, Up
-        //    case PanelType.CurveUpRight:        // Up, RIght
-        //    case PanelType.CurveRightDown:      // Right, Down
-        //    case PanelType.CurveDownLeft:       // Down, Left
-        //    case PanelType.CurveLeftUp_RightDown:   // Down, Up, RIght, Left
-        //    case PanelType.CurveDownLeft_UpRight:   // Down, Up, RIght, Left
-        //        int i = 9;
-        //        break;
-        //}
     }
 
+    // StartBurning(Direction, PanelType);
+    // これをシステムからパネルのプレハブ(PlainPanel)のクラスメソッドに実装する。
+    // パネルオブジェクトは自分のパネルタイプと燃えていく
+    // システムから呼ばれる。
+    // パネルオブジェクトはアニメーションで3秒くらいで自分のタイミングで燃えるアニメーションを表示して、
+    // パネルの燃え終わりのタイミングをパネルオブジェクトから通知する。
+    // JudgeFuseConnection()
 }
