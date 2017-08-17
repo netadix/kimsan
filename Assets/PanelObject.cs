@@ -7,14 +7,17 @@ public class PanelObject : MonoBehaviour {
     public Sprite burntSprite;
     public GameObject FireCracker;
 
+    public bool SpeedUpFlag { get; set; }
+
     private GameObject currentPanelObject;
     private bool FuseBurning;
     private int dummyCount;
-    private bool startFlag;
+    public bool StartFlag { get; set; }
 
     private int startFuse;
     private int endFuse;
     private int currentFusePosition;
+    private int speedUpCount;
 
     //---------------------------------------------------------
     //---------------------------------------------------------
@@ -24,7 +27,8 @@ public class PanelObject : MonoBehaviour {
     void Start () {
         SetFuseBurningCompletion(false);
         dummyCount = 0;
-        startFlag = false;
+        StartFlag = false;
+        speedUpCount = 10;
     }
 
     //---------------------------------------------------------
@@ -33,49 +37,60 @@ public class PanelObject : MonoBehaviour {
     //---------------------------------------------------------
     // Update is called once per frame
     void Update () {
-        if (!startFlag) return;
+        if (!StartFlag) return;
 
-        if ((dummyCount % 10) == 0)
+        if (SpeedUpFlag == true)
+        {
+            speedUpCount = 1;
+        }
+        else
+        {
+            speedUpCount = 10;
+        }
+
+        if ((dummyCount % speedUpCount) == 0)
         {
             if (startFuse < endFuse)
             {
                 currentFusePosition++;
-                if (currentFusePosition >= endFuse)
+                if (currentFusePosition > endFuse)
                 {
                     SetFuseBurningCompletion(true); // 燃え終わった
                     dummyCount = 0;
                     startFuse = endFuse = 0;
+                    currentFusePosition--;
                 }
             }
             else if (startFuse > endFuse)
             {
                 currentFusePosition--;
-                if (currentFusePosition <= endFuse)
+                if (currentFusePosition < endFuse)
                 {
                     SetFuseBurningCompletion(true); // 燃え終わった
                     dummyCount = 0;
                     startFuse = endFuse = 0;
+                    currentFusePosition++;
                 }
             }
             else
             {
                 // Error
             }
-            if (currentPanelObject.transform.childCount >= 1)
+            if (currentPanelObject != null)
             {
-                currentPanelObject.transform.GetChild(currentFusePosition).GetComponent<SpriteRenderer>().sprite = burntSprite;
-                FireCracker.transform.position = currentPanelObject.transform.GetChild(currentFusePosition).position;
+                if (currentPanelObject.transform.childCount >= 1)
+                {
+                    // 燃えた導火線にスプライト差し替え
+                    currentPanelObject.transform.GetChild(currentFusePosition).GetComponent<SpriteRenderer>().sprite = burntSprite;
+                    FireCracker.transform.parent = currentPanelObject.transform;
+                    FireCracker.transform.position = currentPanelObject.transform.GetChild(currentFusePosition).position;
+                    currentPanelObject.transform.GetChild(currentFusePosition).transform.position += new Vector3(Random.value * 0.010f - 0.005f, Random.value * 0.010f - 0.005f, 0f);
+                }
+
             }
-
-
         }
 
         dummyCount++;
-        //if (dummyCount == 60 * 1)
-        //{
-        //    SetFuseBurningCompletion(true); // 燃え終わった
-        //}
-
     }
 
 
@@ -99,6 +114,17 @@ public class PanelObject : MonoBehaviour {
         return FuseBurning;
     }
 
+    //---------------------------------------------------------
+    //---------------------------------------------------------
+    // この関数は外部のクラスから呼ばれる
+    //---------------------------------------------------------
+    //---------------------------------------------------------
+    public void RemoveFireCrackerFromParent()
+    {
+        FireCracker.transform.parent = null;
+        FireCracker.transform.rotation = Quaternion.Euler(0f, 0f, 0f);  // ステージクリア時のパネルの回転をリセット
+    }
+
 
     //---------------------------------------------------------
     //---------------------------------------------------------
@@ -113,7 +139,7 @@ public class PanelObject : MonoBehaviour {
         SetFuseBurningCompletion(false);
         dummyCount = 0;
         currentPanelObject = obj;
-        startFlag = true;
+        // StartFlag = true;
 
         switch (type)
         {
@@ -408,6 +434,7 @@ public class PanelObject : MonoBehaviour {
         if (currentPanelObject.transform.childCount >= 1)
         {
             currentPanelObject.transform.GetChild(currentFusePosition).GetComponent<SpriteRenderer>().sprite = burntSprite;
+            FireCracker.transform.position = currentPanelObject.transform.GetChild(currentFusePosition).position;
         }
 
     }
