@@ -1,4 +1,6 @@
-﻿using System.Collections;
+﻿#define DRAG_CONTROL
+
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -150,6 +152,7 @@ public class PanelSystem : MonoBehaviour
     private GameObject explosionPrefab;
     private int life;
     private float TimeRemain;
+    private bool timeTextAnimationFlag;
 
     // Use this for initialization
 
@@ -728,6 +731,7 @@ void CreateStage(long stageNum)
             Remains[i] = Instantiate(Remain, new Vector3(0f + i * 0.25f, 5f, 0f), Quaternion.Euler(0f, 0f, 0f)) as GameObject;
 
         }
+        timeTextAnimationFlag = false;
     }
 
 
@@ -950,19 +954,8 @@ void CreateStage(long stageNum)
         int i = 0;
         int j = 0;
         float delta = (panelHeight + panelWidth) / 2f / 4f;    // 1/60秒ごとのパネル移動距離
-        MoveDirection tapDirection;
-
-        if (Panel.PanelObject[currentX, currentY].name.Substring(0, 2) != "No")   // "NoPanel"
-        {
-            Panel.PanelObject[currentX, currentY].GetComponent<Animation>().Stop();
-            Panel.PanelObject[currentX, currentY].GetComponent<SpriteRenderer>().color = new Color(0.0f, 0.8f, 0.8f);  // 燃え中のパネル
-        }
-
-        if ((PanelSubSystem.GetComponent<PanelObject>().GetFuseBurningCompletion() == true) && (gameStatus == GameStatus.Play))
-        {
-            JudgeFuseConnection();
-        }
-
+        MoveDirection tapDirection = MoveDirection.None;
+        
         TimeRemain -= 1f / 60f;
         if (TimeRemain <= 0f)
         {
@@ -981,12 +974,25 @@ void CreateStage(long stageNum)
 
             return;
         }
-        if ((int)TimeRemain == 5)
+
+        if ((TimeRemain <= 5f) && (!timeTextAnimationFlag))   // タイマーが5以下になったらタイマーをハートビートさせる
         {
             TimeText.GetComponent<Animation>().Play();
+            timeTextAnimationFlag = true;
         }
 
-        if ((PanelDirection != MoveDirection.None) && (MovingPanel != null))
+        if (Panel.PanelObject[currentX, currentY].name.Substring(0, 2) != "No")   // "NoPanel"
+        {
+            Panel.PanelObject[currentX, currentY].GetComponent<Animation>().Stop();
+            Panel.PanelObject[currentX, currentY].GetComponent<SpriteRenderer>().color = new Color(0.0f, 0.8f, 0.8f);  // 燃え中のパネル
+        }
+
+        if ((PanelSubSystem.GetComponent<PanelObject>().GetFuseBurningCompletion() == true) && (gameStatus == GameStatus.Play))
+        {
+            JudgeFuseConnection();
+        }
+
+        if ((PanelDirection != MoveDirection.None) && (MovingPanel != null))    // パネル移動アニメーション中か？
         {
             moveDistance -= delta;
             if (moveDistance + delta > 0f)
@@ -1029,6 +1035,25 @@ void CreateStage(long stageNum)
                 Panel.PanelObject[swapX1, swapY1] = Panel.PanelObject[swapX2, swapY2];
                 Panel.PanelObject[swapX2, swapY2] = temp_mat;
 
+                switch (PanelDirection)
+                {
+                    case MoveDirection.Down:
+                        tappedPanelY--; // drag用
+                        break;
+
+                    case MoveDirection.Up:
+                        tappedPanelY++; // drag用
+                        break;
+
+                    case MoveDirection.Right:
+                        tappedPanelX++; // drag用
+                        break;
+
+                    case MoveDirection.Left:
+                        tappedPanelX--; // drag用
+                        break;
+                }
+
                 PanelDirection = MoveDirection.None;    // パネル移動中フラグを落とす
 
                 if (gameStatus == GameStatus.ChallengeTime)
@@ -1069,6 +1094,10 @@ void CreateStage(long stageNum)
                                 pushButtonCount++;
                                 tappedPanelX = i;
                                 tappedPanelY = j;
+                                if (tapObject.name.Substring(0, 5) == "Plain")   // "PlainPanel"
+                                {
+                                    tapObject.GetComponent<Animation>().Stop();
+                                }
                                 tapObject.GetComponent<SpriteRenderer>().color = new Color(0.0f, 0.8f, 0.0f);  // 掴んだパネル
  
                                 return;
@@ -1076,6 +1105,70 @@ void CreateStage(long stageNum)
                         }
                     }
                 }
+            }
+            else  // リリースではなくドラッグでパネルを移動させる
+            {
+#if DRAG_CONTROL
+            if (PanelDirection == MoveDirection.None)    // パネル移動アニメーション中じゃなかったら
+                {
+                    clickPosition = Input.mousePosition;
+                    clickPosition.z = 10f;
+                    Vector3 dragPosition = Camera.main.ScreenToWorldPoint(clickPosition);
+                    float deltax = dragPosition.x - tapPosition.x;
+                    float deltay = dragPosition.y - tapPosition.y;
+
+                    if ((Mathf.Abs(deltax) > panelWidth) || (Mathf.Abs(deltay) > panelHeight))
+                    {
+                        if (tapObject.name.Substring(0, 5) == "Plain")   // "PlainPanel"
+                        {
+                            tapObject.GetComponent<Animation>().Stop();
+                            tapObject.GetComponent<Animation>().Play("PanelColorTappedAnimation");
+                        }
+                        Debug.Log("  tapped:" + tapPosition + "  drag:" + dragPosition);
+                        Debug.Log("dX:" + deltax + "  dY:" + deltay);
+
+                        if ((Mathf.Abs(deltax) == 0) && (Mathf.Abs(deltay) == 0))
+                        {
+                            tapDirection = MoveDirection.None;
+                        }
+                        else if (Mathf.Abs(deltax) > Mathf.Abs(deltay))
+                        {
+                            if (deltax > 0)
+                            {
+                                tapDirection = MoveDirection.Right;
+                                tapPosition.x += panelWidth;
+                            }
+                            else
+                            {
+                                tapDirection = MoveDirection.Left;
+                                tapPosition.x -= panelWidth;
+                            }
+                        }
+                        else
+                        {
+                            tapPosition.y = dragPosition.y;
+                            if (deltay > 0)
+                            {
+                                tapDirection = MoveDirection.Up;
+                                tapPosition.y += panelHeight;
+                            }
+                            else
+                            {
+                                tapDirection = MoveDirection.Down;
+                                tapPosition.y -= panelHeight;
+                            }
+                        }
+                        i = tappedPanelX;
+                        j = tappedPanelY;
+                        if (tapObject.name.Substring(0, 5) == "Plain")   // "PlainPanel"
+                        { 
+                            tapObject.GetComponent<Animation>().Stop();
+                        }
+                        tapObject.GetComponent<SpriteRenderer>().color = new Color(0.0f, 0.8f, 0.0f);  // 掴んだパネル
+                        goto FOUND_OBJECT;
+                    }
+                }
+#endif
             }
         }
         else
@@ -1089,6 +1182,7 @@ void CreateStage(long stageNum)
                     tapObject.GetComponent<Animation>().Play("PanelColorTappedAnimation");
                 }
                 pushButtonCount = 0;
+#if !DRAG_CONTROL
                 clickPosition = Input.mousePosition;
                 clickPosition.z = 10f;
                 Vector3 releasePosition = Camera.main.ScreenToWorldPoint(clickPosition);
@@ -1124,6 +1218,7 @@ void CreateStage(long stageNum)
                 i = tappedPanelX;
                 j = tappedPanelY;
                 goto FOUND_OBJECT;
+#endif
             }
         }
 
@@ -1131,6 +1226,8 @@ void CreateStage(long stageNum)
 
         FOUND_OBJECT:
         PanelType temp;
+
+        Debug.Log("x:" + i + " y:" + j);
 
         if ((i != 0) && (tapDirection == MoveDirection.Left))
         {
@@ -1289,6 +1386,9 @@ void CreateStage(long stageNum)
         PanelType currentType = Panel.Matrix[currentX, currentY];
         FuseDirection nextStartDirection = FuseDirection.Up;    // Just in case.
         bool challengeTimeFlag;
+        long tempx, tempy;
+
+        tempx = currentX; tempy = currentY;
 
         // Panel.PanelObject[currentX, currentY].GetComponent<SpriteRenderer>().color = new Color(0.1f, 0.1f, 0.1f);  // 燃え終わり灰色
         if (Panel.PanelObject[currentX, currentY].name.Substring(0, 2) != "No")   // "NoPanel"
@@ -1296,6 +1396,7 @@ void CreateStage(long stageNum)
             Panel.PanelObject[currentX, currentY].GetComponent<Animation>().Stop();
             Panel.PanelObject[currentX, currentY].GetComponent<Animation>().Play("PanelColorBurntAnimation");
         }
+
         // 移動可能方向
         //    case PanelType.StraightVertical:    // Down, Up  
         //    case PanelType.StraightHorizontal;  // Right, Left
@@ -1596,6 +1697,14 @@ void CreateStage(long stageNum)
             gameStatus = GameStatus.Play;
         }
 
+        if (Panel.PanelObject[currentX, currentY].name.Substring(0, 2) != "No")   // "NoPanel" チャレンジタイムに入る時に1フレーム分パネルの色がちらつくための防止
+        {
+            if (gameStatus == GameStatus.ChallengeTime)
+            {
+                Panel.PanelObject[tempx, tempy].GetComponent<Animation>().Stop();
+            }
+        }
+
         DebugStatus1(nextStartDirection);
 
         //-------------------------------------------------------------------------------debug
@@ -1636,7 +1745,6 @@ void CreateStage(long stageNum)
         InformationText.GetComponent<Text>().text = str;
         Animator anime = MainCamera.GetComponent<Animator>();
         anime.Play("CameraBlur");
-        //InformationText.GetComponent<Animation>().Play();
 
         PanelSubSystem.GetComponent<PanelObject>().StartFlag = false;       // サブシステムを停止する
     }
@@ -1660,11 +1768,13 @@ void CreateStage(long stageNum)
 
     void DebugStatus()
     {
+        return;
         Debug.Log("CurrentX:" + currentX + "y:" + currentY);
 
     }
     void DebugStatus1(FuseDirection nextStartDirection)
     {
+        return;
         Debug.Log("CurrentX:" + currentX + "y:" + currentY);
         Debug.Log("CurrentFusePanelDirection:" + CurrentFusePanelDirection + "  nextStartDirection:" + nextStartDirection);
 
@@ -1677,7 +1787,9 @@ void CreateStage(long stageNum)
     {
         TimeText.GetComponent<Animation>().Stop();
         TimeText.GetComponent<Text>().color = new Color(1.0f, 1.0f, 1.0f);
-        FireCracker.transform.localScale = new Vector3(0, 0, 0);
+        timeTextAnimationFlag = false;
+
+        FireCracker.transform.localScale = new Vector3(0.001f, 0.001f, 0.001f);     // 0にするとAssertion Failureになる なんで？？ゼロ割？
         PanelSubSystem.GetComponent<PanelObject>().StartFlag = false;
 
     }
@@ -1730,31 +1842,24 @@ void CreateStage(long stageNum)
     {
         TimeText.GetComponent<Animation>().Stop();
         TimeText.GetComponent<Text>().color = new Color(1.0f, 1.0f, 1.0f);
-        FireCracker.transform.localScale = new Vector3(0, 0, 0);
+        timeTextAnimationFlag = false;
+
+        FireCracker.transform.localScale = new Vector3(0.01f, 0.01f, 0.01f);
 
         InformationText.GetComponent<Text>().text = "STAGE " + stageCount + " CLEAR";
         InformationText.GetComponent<Animation>().Play();
 
         StageClearParticle.SetActive(true);
 
-        for (int i = 0; i < Panel.Size; i++)
-        {
-            for (int j = 0; j < Panel.Size; j++)
-            {
-                //Panel.PanelObject[i, j].GetComponent<Rigidbody2D>().gravityScale = 3f;
-                //Panel.PanelObject[i, j].GetComponent<Rigidbody2D>().AddForce(new Vector2(((float)i - Panel.Size / 2f) * 40f, ((float)j - Panel.Size / 2f) * 40f));
-                //float turn = Input.GetAxis("Horizontal");
-                //Panel.PanelObject[i, j].GetComponent<Rigidbody2D>().AddRelativeForce.AddRelativeTorque(float x, float y, Inpulse ForceMode mode = ForceMode.Force);
-                //float turn = Input.GetAxis("Vertical");
-                //Panel.PanelObject[i, j].GetComponent<Rigidbody2D>().AddTorque(transform.up * torque * turn);
-                //float turn = Input.GetAxis("Horizontal");
-                //Panel.PanelObject[i, j].GetComponent<Rigidbody2D>().AddTorque(transform.up * torque * turn);
-                Panel.PanelObject[i, j].GetComponent<Rigidbody>().useGravity = true;
-                Panel.PanelObject[i, j].GetComponent<Rigidbody>().AddForce(new Vector3(((float)i - Panel.Size / 2f) * 40f, ((float)j - Panel.Size / 2f) * 40f, 0));
-                Panel.PanelObject[i, j].GetComponent<Rigidbody>().AddRelativeTorque(new Vector3(Random.value * 100f, Random.value * 100f, Random.value * 100f));
-
-            }
-        }
+        //for (int i = 0; i < Panel.Size; i++)
+        //{
+        //    for (int j = 0; j < Panel.Size; j++)
+        //    {
+        //        Panel.PanelObject[i, j].GetComponent<Rigidbody>().useGravity = true;
+        //        Panel.PanelObject[i, j].GetComponent<Rigidbody>().AddForce(new Vector3(((float)i - Panel.Size / 2f) * 40f, ((float)j - Panel.Size / 2f) * 40f, 0));
+        //        Panel.PanelObject[i, j].GetComponent<Rigidbody>().AddRelativeTorque(new Vector3(Random.value * 100f, Random.value * 100f, Random.value * 100f));
+        //    }
+        //}
         gameStatus = GameStatus.Cleared;
     }
     // StartBurning(Direction, PanelType);
