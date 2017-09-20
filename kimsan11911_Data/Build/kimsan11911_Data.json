@@ -1,0 +1,9 @@
+{
+"TOTAL_MEMORY": 268435456,
+"dataUrl": "kimsan11911_Data.data.unityweb",
+"asmCodeUrl": "kimsan11911_Data.asm.code.unityweb",
+"asmMemoryUrl": "kimsan11911_Data.asm.memory.unityweb",
+"asmFrameworkUrl": "kimsan11911_Data.asm.framework.unityweb",
+"splashScreenStyle": "Dark",
+"backgroundColor": "#222C36"
+}
